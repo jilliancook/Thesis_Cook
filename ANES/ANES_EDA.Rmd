@@ -1,0 +1,35 @@
+---
+title: "ANES_EDA"
+output: html_document
+---
+
+```{r}
+
+library(dplyr)
+library(readr)
+library(ggplot2)
+
+```
+
+```{r}
+
+data <- read_csv("~/Desktop/Honors Thesis/ANES Data Files/anes_timeseries_cdf_csv_20220916.csv")
+
+# VARIABLES:
+## VCF0302: Party Identification of Respondent - Initial Party ID Response
+## VCF0705: Vote for president - Major Parties and Other
+## VCF0736: Vote for U.S. House - Party
+## VCF0900: Congressional District of Residence
+## VCF0901b: State Postal Abbrev
+## VCF9001: Length of Residence in Community
+## VCF9060: Strength Approve/Disapprove Running U.S. House Incumbent
+## VCF9205: Which party would do a better job handling the nation's economy
+## VCF9225: Has unemployment in teh country gotten better, stayed the same, or gotten worse in the past year
+## VCF9226: Much or somewhat that the level of unemployment has gotten better/worse
+## VCF9229: Will unemployment get better, stay the same, or get worse in the next 12 months
+## VCF9231: Does R favor or oppose placing limits on imports to protect American jobs (or haven't you thought much about this)
+## VCF9240: CSES: Left-right (11pt) scale placement for R
+## VCF9241: CSES: Left-right (11pt) scale placement for Democratic party
+## VCF9242: CSES: Left-right (11pt) scale placement ofr Republican party
+
+```
