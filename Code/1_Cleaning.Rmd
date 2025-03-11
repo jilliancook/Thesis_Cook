@@ -1,0 +1,118 @@
+---
+title: "1_Cleaning"
+output: pdf_document
+---
+
+```{r}
+
+library(ggplot2)
+library(dplyr)
+library(tidyr)
+library(readr)
+
+```
+
+```{r}
+
+# Load in election outcome data
+load("~/Thesis_Cook/Data/Raw/Presidential_Outcomes_1868_2020.Rdata")
+elec_results <- pres_elections_release
+
+# Read in fixed-width text file for demographic data
+fwf_spec <- fwf_widths(
+  widths = c(4, 2, 2, 3, 2, 1, 1, 1, 2, 8),
+  col_names = c("Year", "State_Postal_Abbreviation", "State_FIPS_Code", "County_FIPS_Code", "Registry", "Race", "Origin", "Sex", "Age", "Population")
+)
+
+file_path <- "~/Thesis_Cook/Data/Raw/SEER_1969_2022.txt"
+demographics <- read_fwf(file_path, fwf_spec, col_types = "iciiiiiiii")
+
+```
+
+```{r}
+
+# Subset data (since demographic data is 1969 - 2020)
+elec_results_subset <- subset(elec_results, election_year >= 1968)
+
+# Check for missing vales
+missing_values_dem <- colSums(is.na(demographics))
+missing_values_elec <- colSums(is.na(elec_results_subset))
+
+print(missing_values_dem) # None!
+print(missing_values_elec)
+
+# Handle missing rows for: democratic_raw_votes, republican_raw_votes, pres_raw_vote_totals_two_party, raw_county_vote_totals
+missing_rows <- elec_results_subset[is.na(elec_results_subset$democratic_raw_votes), ]
+print(missing_rows) 
+print(elec_results_subset[elec_results_subset$county_name == "KALAWAO", ])
+
+# KAWALAO county contains all of the NA rows for: democratic_raw_votes, republican_raw_votes, pres_raw_vote_totals_two_party, raw_county_vote_totals, so we will remove the county (also has very small population)
+elec_results_subset <- elec_results_subset[elec_results_subset$county_name != "KALAWAO", ]
+
+missing_values_elec <- colSums(is.na(elec_results_subset)) # Check to ensure there are no more NAs
+print(missing_values_elec) # None! (that are relevant)
+
+# Create 5 digit fips code for demographics
+demographics$fips <- sprintf("%02d%03d", demographics$State_FIPS_Code, demographics$County_FIPS_Code)
+
+```
+
+```{r}
+
+# Feature Engineering - Demographics
+
+print(unique(demographics$Race))
+print(unique(demographics$Sex))
+print(unique(demographics$Age))
+
+# Age
+# Instead of 18 different age groups, I will have the following breakdown:
+# (1: 15-24), (2: 25-39), (3: 40-54), (4:55-69), (5: 70+)
+
+demographics <- demographics %>%
+  mutate(Age_Group = case_when(
+    Age %in% c(0, 1, 2, 3) ~ 0,
+    Age %in% c(4, 5, 6) ~ 1,
+    Age %in% c(6, 7, 8) ~ 2,
+    Age %in% c(9, 10, 11) ~ 3,
+    Age %in% c(12, 13, 14) ~ 4,
+    Age %in% c(15, 16, 17, 18) ~ 5
+  ))
+
+demographics <- demographics %>%
+  mutate(
+    sex = ifelse(Sex == 1, "male", "female"),
+    race = case_when(
+      Race == 1 ~ "white",
+      Race == 2 ~ "black",
+      Race == 3 ~ "other"
+    ),
+    Demo_Group = paste0(sex, "_", race, "_", Age_Group)
+  ) %>%
+  select(-sex, -race) 
+
+
+
+
+
+```
+
+
+```{r}
+
+# Merge the two datasets
+
+print(unique(demographics$fips))
+print(unique(elec_results_subset$fips))
+
+merged_data <- merge(demographics, elec_results_subset, by = "fips", all = TRUE)
+
+
+
+
+```
+
+
+
+
+
