@@ -14,6 +14,8 @@ library(readr)
 
 ```{r}
 
+# LOADING IN DATA
+
 # Load in election outcome data
 load("~/Thesis_Cook/Data/Raw/Presidential_Outcomes_1868_2020.Rdata")
 elec_results <- pres_elections_release
@@ -30,6 +32,8 @@ demographics <- read_fwf(file_path, fwf_spec, col_types = "iciiiiiiii")
 ```
 
 ```{r}
+
+# TREATING MISSING VALUES
 
 # Subset data (since demographic data is 1969 - 2020)
 elec_results_subset <- subset(elec_results, election_year >= 1968)
@@ -52,20 +56,16 @@ elec_results_subset <- elec_results_subset[elec_results_subset$county_name != "K
 missing_values_elec <- colSums(is.na(elec_results_subset)) # Check to ensure there are no more NAs
 print(missing_values_elec) # None! (that are relevant)
 
-# Create 5 digit fips code for demographics
-demographics$fips <- sprintf("%02d%03d", demographics$State_FIPS_Code, demographics$County_FIPS_Code)
-
 ```
 
 ```{r}
 
-# Feature Engineering - Demographics
+# FEATURE ENGINEERING - DEMOGRAPHICS
 
 print(unique(demographics$Race))
 print(unique(demographics$Sex))
 print(unique(demographics$Age))
 
-# Age
 # Instead of 18 different age groups, I will have the following breakdown:
 # (1: 15-24), (2: 25-39), (3: 40-54), (4:55-69), (5: 70+)
 
@@ -81,24 +81,63 @@ demographics <- demographics %>%
 
 demographics <- demographics %>%
   mutate(
-    sex = ifelse(Sex == 1, "male", "female"),
-    race = case_when(
+    sex_dummy = ifelse(Sex == 1, "male", "female"),
+    race_dummy = case_when(
       Race == 1 ~ "white",
       Race == 2 ~ "black",
       Race == 3 ~ "other"
     ),
-    Demo_Group = paste0(sex, "_", race, "_", Age_Group)
+    Demo_Group = paste0(sex_dummy, "_", race_dummy, "_", Age_Group)
   ) %>%
-  select(-sex, -race) 
+  select(-sex_dummy, -race_dummy) 
 
+# Dropping origin column (not relevant to this data)
+demographics <- demographics %>% 
+  select(-Origin)
 
+# Create 5 digit fips code for demographics
+demographics$fips <- sprintf("%02d%03d", demographics$State_FIPS_Code, demographics$County_FIPS_Code)
 
+```
 
+```{r}
+
+# RESHAPING - DEMOGRAPHICS
+
+# Sum populations across demographic groups
+demographics_group <- demographics %>%
+  group_by(Year, fips, Demo_Group) %>%
+  summarise(Population = sum(Population, na.rm = TRUE), .groups = "drop")
+  
+# Widen data so demographic groups become columns
+demographics_wide <- demographics_group %>% 
+  pivot_wider(
+    names_from = Demo_Group,
+    values_from = Population
+  )
+
+# Change NAs to 0
+demographics_wide[is.na(demographics_wide)] <- 0
+
+# Rearrange
+demographics_wide <- demographics_wide %>% 
+  select(1,2,3,4,5,6,7,8,9,33,10,11,12,34,13,14,15,16,17,18,19,20,21,22,23,24,25,35,36,37,26,38,27,28,29,30,31,32)
+
+# Check results
+print(sum(demographics_group$Population) == sum(demographics$Population))
+
+demographics_test <- demographics_wide %>% 
+  select(-Year, -fips) %>% 
+  mutate(total_pop = rowSums(across(where(is.numeric))))
+
+print(sum(demographics$Population) == sum(demographics_test$total_pop))
 
 ```
 
 
 ```{r}
+
+
 
 # Merge the two datasets
 
