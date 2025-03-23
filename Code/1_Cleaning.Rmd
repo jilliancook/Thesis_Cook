@@ -36,7 +36,7 @@ demographics <- read_fwf(file_path, fwf_spec, col_types = "iciiiiiiii")
 # TREATING MISSING VALUES
 
 # Subset data (since demographic data is 1969 - 2020)
-elec_results_subset <- subset(elec_results, election_year >= 1968)
+elec_results_subset <- subset(elec_results, election_year >= 1969)
 
 # Check for missing vales
 missing_values_dem <- colSums(is.na(demographics))
@@ -134,24 +134,34 @@ print(sum(demographics$Population) == sum(demographics_test$total_pop))
 
 ```
 
+```{r}
+
+# MERGING
+
+elec_results_subset <- elec_results_subset %>% 
+  select(-county_first_date, -county_end_date, -state_admission_date, -original_county_name, -original_name_end_date)
+
+merged_data <- elec_results_subset %>%
+  left_join(demographics_wide, by = c("election_year" = "Year", "fips" = "fips"))
+
+```
 
 ```{r}
 
+# Additional Feature Engineering:
 
+# dem raw votes / raw vote total two party
+# dem raw votes / raw vote total
+# rep raw votes / raw vote total two party
+# rep raw votes / raw vote total
 
-# Merge the two datasets
+# total pop
+# dem raw votes / total pop
+# rep raw votes / total pop
+# raw vote total / total pop
 
-print(unique(demographics$fips))
-print(unique(elec_results_subset$fips))
-
-merged_data <- merge(demographics, elec_results_subset, by = "fips", all = TRUE)
-
+# just male, female, 0-5, black, white, other
 
 
 
 ```
-
-
-
-
-
