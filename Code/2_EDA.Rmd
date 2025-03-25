@@ -1,5 +1,37 @@
 ---
 title: "2_EDA"
-output: html_document
+output: pdf_document
 ---
 
+```{r}
+
+library(ggplot2)
+library(dplyr)
+library(tidyr)
+library(readr)
+library(sf)
+library(tigris)
+options(tigris_use_cache = TRUE)
+
+data <- readRDS("../Data/Processed/Merged_Data.rds")
+
+```
+
+```{r}
+
+# Setting up geographical map
+
+county_shapes <- counties(cb = TRUE, class = "sf")
+data$fips <- as.character(data$fips)
+
+map_data <- county_shapes %>%
+  left_join(data, by = c("GEOID" = "fips"))
+
+ggplot(map_data) +
+  geom_sf(fill = "gray80", color = "white") +
+  coord_sf(xlim = c(-125, -66), ylim = c(24, 50), expand = FALSE)
+
+
+
+
+```
