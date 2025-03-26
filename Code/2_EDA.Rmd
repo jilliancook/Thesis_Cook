@@ -19,6 +19,67 @@ data <- readRDS("../Data/Processed/Merged_Data.rds")
 
 ```{r}
 
+# DEMOGRAPHICS ACROSS TIME
+
+# Could do table in % change of demographics across time
+
+pop_share_age <- ggplot() +
+  stat_summary(data = data, aes(x = election_year, y = Age_0_Total_Pop / Total_Pop, color = "Age Group 0"), fun = mean, geom = "line") +
+  stat_summary(data = data, aes(x = election_year, y = Age_1_Total_Pop / Total_Pop, color = "Age Group 1"), fun = mean, geom = "line") +
+  stat_summary(data = data, aes(x = election_year, y = Age_2_Total_Pop / Total_Pop, color = "Age Group 2"), fun = mean, geom = "line") +
+  stat_summary(data = data, aes(x = election_year, y = Age_3_Total_Pop / Total_Pop, color = "Age Group 3"), fun = mean, geom = "line") +
+  stat_summary(data = data, aes(x = election_year, y = Age_4_Total_Pop / Total_Pop, color = "Age Group 4"), fun = mean, geom = "line") +
+  stat_summary(data = data, aes(x = election_year, y = Age_5_Total_Pop / Total_Pop, color = "Age Group 5"), fun = mean, geom = "line") +
+  labs(x = "Election Year", y = "Population Share", title = "Population Share By Age Group Over Time", color = "Age Group") 
+
+pop_share_race <- ggplot() +
+  stat_summary(data = data, aes(x = election_year, y = White_Total_Pop / Total_Pop, color = "White"), fun = mean, geom = "line") +
+  stat_summary(data = data, aes(x = election_year, y = Black_Total_Pop / Total_Pop, color = "Black"), fun = mean, geom = "line") +
+  stat_summary(data = data, aes(x = election_year, y = Other_Total_Pop / Total_Pop, color = "Other"), fun = mean, geom = "line") +
+  labs(x = "Election Year", y = "Population Share", title = "Population Shrae By Race Over Time", color = "Race")
+
+pop_share_sex <- ggplot() +
+  stat_summary(data = data, aes(x = election_year, y = Female_Total_Pop / Total_Pop, color = "Female"), fun = mean, geom = "line") +
+  stat_summary(data = data, aes(x = election_year, y = Male_Total_Pop / Total_Pop, color = "Male"), fun = mean, geom = "line") +
+  labs(x = "Election Year", y = "Population Share", title = "Population Share By Sex Over Time", color = "Sex") 
+
+
+print(pop_share_age)
+print(pop_share_race)
+print(pop_share_sex)
+
+```
+
+```{r}
+
+# VOTER SHARE & TURNOUT OVER TIME
+
+voter_turnout <- ggplot() +
+  stat_summary(data = data, mapping = aes(x = election_year, y = total_voter_turnout, color = "Total Turnout"), fun = mean, geom = "line") +
+  stat_summary(data = data, mapping = aes(x = election_year, y = dem_voter_turnout, color = "Demgoraphic Turnout"), fun = mean, geom = "line") +
+  stat_summary(data = data, mapping = aes(x = election_year, y = rep_voter_turnout, color = "Republican Voter Turnout"), fun = mean, geom = "line") +
+  labs(x = "Election Year", y = "Voter Turnout", title = "Voter Turnout Across Time", color = "Turnout")
+
+vote_share <- ggplot() +
+  stat_summary(data = data, mapping = aes(x = election_year, y = rep_vote_share_two_party, color = "Republican"), fun = mean, geom = "line") +
+  stat_summary(data = data, mapping = aes(x = election_year, y = dem_vote_share_two_party, color = "Democratic"), fun = mean, geom = "line") +
+  scale_color_manual(values = c("Democratic" = "blue", "Republican" = "red")) +
+  labs(x = "Election Year", y = "Vote Share", title = "Voter Share by Party Across Time", color = "Party")
+
+print(voter_turnout)
+print(vote_share)
+
+
+ggplot(data, aes(x = Black_Total_Pop / Total_Pop, y = dem_vote_share_two_party)) +
+  geom_point(alpha = 0.3) +
+  facet_wrap(~election_year) +
+  labs(title = "Black Population Share vs. Dem Vote Share")
+
+
+```
+
+```{r}
+
 # Setting up geographical map
 
 county_shapes <- counties(cb = TRUE, class = "sf")
@@ -30,8 +91,5 @@ map_data <- county_shapes %>%
 ggplot(map_data) +
   geom_sf(fill = "gray80", color = "white") +
   coord_sf(xlim = c(-125, -66), ylim = c(24, 50), expand = FALSE)
-
-
-
 
 ```
