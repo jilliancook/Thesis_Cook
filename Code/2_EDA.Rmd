@@ -55,9 +55,10 @@ print(pop_share_sex)
 # VOTER SHARE & TURNOUT OVER TIME
 
 voter_turnout <- ggplot() +
-  stat_summary(data = data, mapping = aes(x = election_year, y = total_voter_turnout, color = "Total Turnout"), fun = mean, geom = "line") +
-  stat_summary(data = data, mapping = aes(x = election_year, y = dem_voter_turnout, color = "Demgoraphic Turnout"), fun = mean, geom = "line") +
-  stat_summary(data = data, mapping = aes(x = election_year, y = rep_voter_turnout, color = "Republican Voter Turnout"), fun = mean, geom = "line") +
+  stat_summary(data = data, mapping = aes(x = election_year, y = total_voter_turnout, color = "Total"), fun = mean, geom = "line") +
+  stat_summary(data = data, mapping = aes(x = election_year, y = dem_voter_turnout, color = "Democrats"), fun = mean, geom = "line") +
+  stat_summary(data = data, mapping = aes(x = election_year, y = rep_voter_turnout, color = "Republicans"), fun = mean, geom = "line") +
+  scale_color_manual(values = c("Democrats" = "blue", "Republicans" = "red", "Total" = "green")) +
   labs(x = "Election Year", y = "Voter Turnout", title = "Voter Turnout Across Time", color = "Turnout")
 
 vote_share <- ggplot() +
@@ -69,14 +70,83 @@ vote_share <- ggplot() +
 print(voter_turnout)
 print(vote_share)
 
+```
 
-ggplot(data, aes(x = Black_Total_Pop / Total_Pop, y = dem_vote_share_two_party)) +
+```{r}
+
+# RACE AND VOTE SHARE
+
+black_share_dem <- ggplot(data, aes(x = Black_Total_Pop / Total_Pop, y = dem_vote_share_two_party)) +
   geom_point(alpha = 0.3) +
+  geom_smooth(method = "lm", se = FALSE, color = "blue") +
   facet_wrap(~election_year) +
-  labs(title = "Black Population Share vs. Dem Vote Share")
+  labs(x = "Black Share of Population", y = "Democratic Vote Share", title = "Black Population Share vs. Dem Vote Share")
+
+white_share_dem <- ggplot(data, aes(x = White_Total_Pop / Total_Pop, y = dem_vote_share_two_party)) +
+  geom_point(alpha = 0.3) +
+  geom_smooth(method = "lm", se = FALSE, color = "blue") +
+  facet_wrap(~election_year) +
+  labs(x = "White Share of Population", y = "Democratic Vote Share", title = "White Population Share vs. Dem Vote Share")
+
+other_share_dem <- ggplot(data, aes(x = Other_Total_Pop / Total_Pop, y = dem_vote_share_two_party)) +
+  geom_point(alpha = 0.3) +
+  geom_smooth(method = "lm", se = FALSE, color = "blue") +
+  facet_wrap(~election_year) +
+  labs(x = "White Share of Population", y = "Democratic Vote Share", title = "Other Population Share vs. Dem Vote Share")
+
+print(black_share_dem)
+print(white_share_dem)
+print(other_share_dem)
+
+black_share_rep <- ggplot(data, aes(x = Black_Total_Pop / Total_Pop, y = rep_vote_share_two_party)) +
+  geom_point(alpha = 0.3) +
+  geom_smooth(method = "lm", se = FALSE, color = "blue") +
+  facet_wrap(~election_year) +
+  labs(x = "Black Share of Population", y = "Republican Vote Share", title = "Black Population Share vs. Rep Vote Share")
+
+white_share_rep <- ggplot(data, aes(x = White_Total_Pop / Total_Pop, y = rep_vote_share_two_party)) +
+  geom_point(alpha = 0.3) +
+  geom_smooth(method = "lm", se = FALSE, color = "blue") +
+  facet_wrap(~election_year) +
+  labs(x = "White Share of Population", y = "Republican Vote Share", title = "White Population Share vs. Rep Vote Share")
+
+other_share_rep <- ggplot(data, aes(x = Other_Total_Pop / Total_Pop, y = rep_vote_share_two_party)) +
+  geom_point(alpha = 0.3) +
+  geom_smooth(method = "lm", se = FALSE, color = "blue") +
+  facet_wrap(~election_year) +
+  labs(x = "Other Share of Population", y = "Republican Vote Share", title = "Other Population Share vs. Rep Vote Share")
+
+
+print(black_share_rep)
+print(white_share_rep)
+print(other_share_rep)
+
+```
+
+```{r}
+
+# AGE AND VOTE SHARE
+
+age_5_dem_share <- ggplot(data, aes(x = Age_5_Total_Pop / Total_Pop, y = dem_vote_share_two_party)) +
+  geom_point(alpha = 0.3) +
+  geom_smooth(method = "lm", se = FALSE, color = "blue") +
+  facet_wrap(~election_year) +
+  labs(x = "Age Group 5 Share of Population", y = "Democratic Vote Share", title = "Age Group 5 Population Share vs. Dem Vote Share")
+
+age_5_rep_share <- ggplot(data, aes(x = Age_5_Total_Pop / Total_Pop, y = rep_vote_share_two_party)) +
+  geom_point(alpha = 0.3) +
+  geom_smooth(method = "lm", se = FALSE, color = "blue") +
+  facet_wrap(~election_year) +
+  labs(x = "Age Group 5 Share of Population", y = "Republican Vote Share", title = "Age Group 5 Population Share vs. Rep Vote Share")
+
+print(age_5_dem_share)
+print(age_5_rep_share)
+
 
 
 ```
+
+
 
 ```{r}
 
