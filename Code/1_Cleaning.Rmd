@@ -81,11 +81,11 @@ demographics <- demographics %>%
 
 demographics <- demographics %>%
   mutate(
-    sex_dummy = ifelse(Sex == 1, "male", "female"),
+    sex_dummy = ifelse(Sex == 1, "Male", "Female"),
     race_dummy = case_when(
-      Race == 1 ~ "white",
-      Race == 2 ~ "black",
-      Race == 3 ~ "other"
+      Race == 1 ~ "White",
+      Race == 2 ~ "Black",
+      Race == 3 ~ "Other"
     ),
     Demo_Group = paste0(sex_dummy, "_", race_dummy, "_", Age_Group)
   ) %>%
@@ -132,6 +132,36 @@ demographics_test <- demographics_wide %>%
 
 print(sum(demographics$Population) == sum(demographics_test$total_pop))
 
+# Adding in population totals for age, sex, and race
+demographics_wide <- demographics_wide %>%
+  mutate(Black_Total_Pop = rowSums(select(., matches("^(Female|Male)_Black_"))),
+         White_Total_Pop = rowSums(select(., matches("^(Female|Male)_White_"))),
+         Other_Total_Pop = rowSums(select(., matches("^(Female|Male)_Other_"))),
+         Female_Total_Pop = rowSums(select(., starts_with("Female_"))),
+         Male_Total_Pop = rowSums(select(., starts_with("Male_"))),
+         Age_0_Total_Pop = rowSums(select(., ends_with("_0"))),
+         Age_1_Total_Pop = rowSums(select(., ends_with("_1"))),
+         Age_2_Total_Pop = rowSums(select(., ends_with("_2"))),
+         Age_3_Total_Pop = rowSums(select(., ends_with("_3"))),
+         Age_4_Total_Pop = rowSums(select(., ends_with("_4"))),
+         Age_5_Total_Pop = rowSums(select(., ends_with("_5")))) %>% 
+  mutate(Total_Pop = Female_Total_Pop + Male_Total_Pop)
+
+# Check results
+pop_by_race <- demographics_wide %>% 
+  select(Black_Total_Pop, White_Total_Pop, Other_Total_Pop) %>% 
+  sum()
+
+pop_by_sex <- demographics_wide %>% 
+  select(Female_Total_Pop, Male_Total_Pop) %>% 
+  sum()
+
+pop_by_age <- demographics_wide %>% 
+  select(Age_0_Total_Pop, Age_1_Total_Pop, Age_2_Total_Pop, Age_3_Total_Pop, Age_4_Total_Pop, Age_5_Total_Pop) %>% 
+  sum()
+
+print(all(pop_by_race, pop_by_sex, pop_by_age, sum(demographics$Population), sum(demographics_wide$Total_Pop)))
+
 ```
 
 ```{r}
@@ -148,20 +178,29 @@ merged_data <- elec_results_subset %>%
 
 ```{r}
 
-# Additional Feature Engineering:
+# ADDITIONAL FEATURE ENGINEERING
 
-# dem raw votes / raw vote total two party
-# dem raw votes / raw vote total
-# rep raw votes / raw vote total two party
-# rep raw votes / raw vote total
+cols_to_convert <- c("Female_Black_0", "Female_Black_1", "Female_Black_2", "Female_Black_3", "Female_Black_4", "Female_Black_5", "Female_Other_0", "Female_Other_1", "Female_Other_2", "Female_Other_3", "Female_Other_4", "Female_Other_4", "Female_Other_5", "Female_White_0", "Female_White_1", "Female_White_2", "Female_White_3", "Female_White_4", "Female_White_5", "Male_Black_0", "Male_Black_1", "Male_Black_2", "Male_Black_3", "Male_Black_4", "Male_Black_5", "Male_Other_0", "Male_Other_1", "Male_Other_2", "Male_Other_3", "Male_Other_4" ,"Male_Other_5", "Male_White_0", "Male_White_1", "Male_White_2", "Male_White_3", "Male_White_4", "Male_White_5", "Black_Total_Pop", "White_Total_Pop", "Other_Total_Pop", "Female_Total_Pop", "Male_Total_Pop", "Age_0_Total_Pop", "Age_1_Total_Pop", "Age_2_Total_Pop", "Age_3_Total_Pop", "Age_4_Total_Pop", "Age_5_Total_Pop")
 
-# total pop
-# dem raw votes / total pop
-# rep raw votes / total pop
-# raw vote total / total pop
+merged_data <- merged_data %>%
+  mutate(across(
+    all_of(cols_to_convert),
+    ~ .x / Total_Pop
+  ))
 
-# just male, female, 0-5, black, white, other
+merged_data <- merged_data %>% 
+  mutate(dem_vote_share_two_party = democratic_raw_votes / pres_raw_county_vote_totals_two_party,
+         dem_vote_share_total = democratic_raw_votes / raw_county_vote_totals,
+         rep_vote_share_two_party = republican_raw_votes / pres_raw_county_vote_totals_two_party,
+         rep_vote_share_total = republican_raw_votes / raw_county_vote_totals,
+         dem_voter_turnout = democratic_raw_votes / Total_Pop,
+         rep_voter_turnout = republican_raw_votes / Total_Pop,
+         total_voter_turnout = raw_county_vote_totals / Total_Pop)
 
+merged_data <- merged_data %>% 
+  select(1,2,3,4,5,6,7,8,9,10,11,12,13,14,64,65,66,67,68,69,70,15,16,17,18,19,20,21,22,23,24,25,26,27,28,29,30,31,32,33,34,35,36,37,38,39,40,41,42,43,44,45,46,47,48,49,50,51,52,53,54,55,56,57,58,59,60,61,62,63)
 
+# Save data as rds file
+saveRDS(merged_data, file = "../Data/Processed/Merged_Data.rds")
 
 ```
