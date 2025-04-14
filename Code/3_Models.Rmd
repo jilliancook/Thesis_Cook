@@ -14,7 +14,27 @@ library(tigris)
 
 data <- readRDS("../Data/Processed/Merged_Data.rds")
 
+# Pooled OLS
+# Population-averaged estimator
+# Fixed effects
+
+# Understand how the relationship between demographic composition and Democratic vote share has changed over time — both in terms of correlation strength and model-based explanatory power.
+
 ```
+
+```{r}
+
+lm_fixed_base <- lm(dem_vote_share_two_party ~ White_Total_Pop + Black_Total_Pop + Other_Total_Pop + Male_Total_Pop + Female_Total_Pop + Age_0_Total_Pop + Age_1_Total_Pop + Age_2_Total_Pop + Age_3_Total_Pop + Age_4_Total_Pop + Age_5_Total_Pop + factor(election_year), data = data)
+
+lm_fixed_sliced <- lm(dem_vote_share_two_party ~ Female_Black_0 + Female_Black_1 + Female_Black_2 + Female_Black_3 + Female_Black_4 + Female_Black_5 + Female_Other_0 + Female_Other_1 + Female_Other_2 + Female_Other_3 + Female_Other_4 + Female_Other_5 + Female_White_0 + Female_White_1 + Female_White_2 + Female_White_3 + Female_White_4 + Female_White_5 + Male_Black_0 + Male_Black_1 + Male_Black_2 + Male_Black_3 + Male_Black_4 + Male_Black_5 + Male_Other_0 + Male_Other_1 + Male_Other_2 + Male_Other_3 + Male_Other_4 + Male_Other_5 + Male_White_0 + Male_White_1 + Male_White_2 + Male_White_3 + Male_White_4 + Male_White_5 + factor(election_year), data = data)
+
+lm_fixed_total <- lm(dem_vote_share_two_party ~ White_Total_Pop + Black_Total_Pop + Other_Total_Pop + Male_Total_Pop + Female_Total_Pop + Age_0_Total_Pop + Age_1_Total_Pop + Age_2_Total_Pop + Age_3_Total_Pop + Age_4_Total_Pop + Age_5_Total_Pop + Female_Black_0 + Female_Black_1 + Female_Black_2 + Female_Black_3 + Female_Black_4 + Female_Black_5 + Female_Other_0 + Female_Other_1 + Female_Other_2 + Female_Other_3 + Female_Other_4 + Female_Other_5 + Female_White_0 + Female_White_1 + Female_White_2 + Female_White_3 + Female_White_4 + Female_White_5 + Male_Black_0 + Male_Black_1 + Male_Black_2 + Male_Black_3 + Male_Black_4 + Male_Black_5 + Male_Other_0 + Male_Other_1 + Male_Other_2 + Male_Other_3 + Male_Other_4 + Male_Other_5 + Male_White_0 + Male_White_1 + Male_White_2 + Male_White_3 + Male_White_4 + Male_White_5 + factor(election_year), data = data)
+
+summary(lm_fixed_sliced)
+
+
+```
+
 
 ```{r}
 
