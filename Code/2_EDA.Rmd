@@ -11,6 +11,7 @@ library(tidyr)
 library(readr)
 library(sf)
 library(tigris)
+library(corrplot)
 options(tigris_use_cache = TRUE)
 
 data <- readRDS("../Data/Processed/Merged_Data.rds")
@@ -24,7 +25,6 @@ data <- readRDS("../Data/Processed/Merged_Data.rds")
 # regional analysis
 # tracing explanatory power over time
 # close analysis with regional heterogeneity
-
 
 ```
 
@@ -320,6 +320,19 @@ composition_summary <- data %>%
 
 ```
 
+
+```{r}
+
+# CORRELATION
+
+numeric_data <- data %>% 
+  select(where(is.numeric)) %>% 
+  select(-c("election_year", "democratic_raw_votes", "republican_raw_votes", "pres_raw_county_vote_totals_two_party", "raw_county_vote_totals", "dem_vote_share_total", "rep_vote_share_two_party", "rep_vote_share_total", "dem_voter_turnout", "rep_voter_turnout", "total_voter_turnout", "complete_county_cases"))
+
+cor_matrix <- cor(numeric_data, use = "pairwise.complete.obs")
+corrplot(cor_matrix, method = "color", tl.cex = 0.8)
+
+```
 
 
 ```{r}
