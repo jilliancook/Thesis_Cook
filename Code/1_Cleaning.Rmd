@@ -139,6 +139,12 @@ demographics_wide <- demographics_wide %>%
          Other_Total_Pop = rowSums(select(., matches("^(Female|Male)_Other_"))),
          Female_Total_Pop = rowSums(select(., starts_with("Female_"))),
          Male_Total_Pop = rowSums(select(., starts_with("Male_"))),
+         Female_White_Total_Pop = rowSums(select(., matches("^(Female)_White_"))),
+         Female_Black_Total_Pop = rowSums(select(., matches("^(Female)_Black_"))),
+         Female_Other_Total_Pop = rowSums(select(., matches("^(Female)_Other_"))),
+         Male_White_Total_Pop = rowSums(select(., matches("^(Male)_White_"))),
+         Male_Black_Total_Pop = rowSums(select(., matches("^(Male)_Black_"))),
+         Male_Other_Total_Pop = rowSums(select(., matches("^(Male)_Other_"))),
          Age_0_Total_Pop = rowSums(select(., ends_with("_0"))),
          Age_1_Total_Pop = rowSums(select(., ends_with("_1"))),
          Age_2_Total_Pop = rowSums(select(., ends_with("_2"))),
@@ -171,8 +177,23 @@ print(all(pop_by_race, pop_by_sex, pop_by_age, sum(demographics$Population), sum
 elec_results_subset <- elec_results_subset %>% 
   select(-county_first_date, -county_end_date, -state_admission_date, -original_county_name, -original_name_end_date)
 
+# Check for missing values post-merge
 merged_data <- elec_results_subset %>%
   left_join(demographics_wide, by = c("election_year" = "Year", "fips" = "fips"))
+
+missing_values_merged <- colSums(is.na(merged_data))
+print(missing_values_merged) 
+
+missing_rows_merged <- merged_data[is.na(merged_data$Total_Pop), ]
+print(missing_rows_merged) # All NAs due to demographic data not going all the way back to 1972 (although election data does)
+
+# Drop NAs (so panel data is balanced)
+merged_data <- merged_data %>%
+  filter(complete.cases(Total_Pop))
+
+# Check to make sure merged data is now balanced
+missing_values_merged <- colSums(is.na(merged_data))
+print(missing_values_merged) # None!
 
 ```
 
@@ -180,7 +201,7 @@ merged_data <- elec_results_subset %>%
 
 # ADDITIONAL FEATURE ENGINEERING
 
-cols_to_convert <- c("Female_Black_0", "Female_Black_1", "Female_Black_2", "Female_Black_3", "Female_Black_4", "Female_Black_5", "Female_Other_0", "Female_Other_1", "Female_Other_2", "Female_Other_3", "Female_Other_4", "Female_Other_4", "Female_Other_5", "Female_White_0", "Female_White_1", "Female_White_2", "Female_White_3", "Female_White_4", "Female_White_5", "Male_Black_0", "Male_Black_1", "Male_Black_2", "Male_Black_3", "Male_Black_4", "Male_Black_5", "Male_Other_0", "Male_Other_1", "Male_Other_2", "Male_Other_3", "Male_Other_4" ,"Male_Other_5", "Male_White_0", "Male_White_1", "Male_White_2", "Male_White_3", "Male_White_4", "Male_White_5", "Black_Total_Pop", "White_Total_Pop", "Other_Total_Pop", "Female_Total_Pop", "Male_Total_Pop", "Age_0_Total_Pop", "Age_1_Total_Pop", "Age_2_Total_Pop", "Age_3_Total_Pop", "Age_4_Total_Pop", "Age_5_Total_Pop")
+cols_to_convert <- c("Female_Black_0", "Female_Black_1", "Female_Black_2", "Female_Black_3", "Female_Black_4", "Female_Black_5", "Female_Other_0", "Female_Other_1", "Female_Other_2", "Female_Other_3", "Female_Other_4", "Female_Other_4", "Female_Other_5", "Female_White_0", "Female_White_1", "Female_White_2", "Female_White_3", "Female_White_4", "Female_White_5", "Male_Black_0", "Male_Black_1", "Male_Black_2", "Male_Black_3", "Male_Black_4", "Male_Black_5", "Male_Other_0", "Male_Other_1", "Male_Other_2", "Male_Other_3", "Male_Other_4" ,"Male_Other_5", "Male_White_0", "Male_White_1", "Male_White_2", "Male_White_3", "Male_White_4", "Male_White_5", "Black_Total_Pop", "White_Total_Pop", "Other_Total_Pop", "Female_Total_Pop", "Male_Total_Pop", "Female_White_Total_Pop", "Female_Black_Total_Pop", "Female_Other_Total_Pop", "Male_White_Total_Pop", "Male_Black_Total_Pop", "Male_Other_Total_Pop", "Age_0_Total_Pop", "Age_1_Total_Pop", "Age_2_Total_Pop", "Age_3_Total_Pop", "Age_4_Total_Pop", "Age_5_Total_Pop")
 
 merged_data <- merged_data %>%
   mutate(across(
@@ -198,7 +219,7 @@ merged_data <- merged_data %>%
          total_voter_turnout = raw_county_vote_totals / Total_Pop)
 
 merged_data <- merged_data %>% 
-  select(1,2,3,4,5,6,7,8,9,10,11,12,13,14,64,65,66,67,68,69,70,15,16,17,18,19,20,21,22,23,24,25,26,27,28,29,30,31,32,33,34,35,36,37,38,39,40,41,42,43,44,45,46,47,48,49,50,51,52,53,54,55,56,57,58,59,60,61,62,63)
+  select(1,2,3,4,5,6,7,8,9,10,11,12,13,14,70,71,72,73,74,75,76,15,16,17,18,19,20,21,22,23,24,25,26,27,28,29,30,31,32,33,34,35,36,37,38,39,40,41,42,43,44,45,46,47,48,49,50,51,52,53,54,55,56,57,58,59,60,61,62,63,64,65,66,67,68,69)
 
 # Save data as rds file
 saveRDS(merged_data, file = "../Data/Processed/Merged_Data.rds")
