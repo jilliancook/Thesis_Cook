@@ -26,17 +26,17 @@ data <- readRDS("../Data/Processed/Merged_Data.rds")
 
 ```{r}
 
-# Split into train and test sets (70/30 split)
+# TRAIN & TEST (70/30)
 
-test_years <- c(1972, 1976, 2016, 2020)
-test <- data[data$election_year %in% test_years, ]
-train <- data[!(data$election_year %in% test_years), ]
+train <- data[!(data$election_year %in% c(1972, 1976, 2016, 2020)), ]
+test_early <- data[data$election_year %in% c(1972, 1976), ]
+test_late <- data[data$election_year %in% c(2016, 2020), ]
 
 ```
 
 ```{r}
 
-# Perform Lasso (with CV)
+# LASSO (W/ CV)
 
 set.seed(123)
 
@@ -77,10 +77,7 @@ print(coef_df)
 
 ```{r}
 
-# summary(fe_model)$r.squared
-# library(fixest)
-# fe_model <- feols(dem_vote_share_two_party ~ female_share + white_share + black_share + age0_share + age5_share | county + election_year, data = your_data)
-# Lsummary(fe_model)
+# MODEL TESTING & SELECTION
 
 pdata_train <- pdata.frame(train, index = c("fips", "election_year")) # Convert to panel data
 model <- dem_vote_share_two_party ~ Male_Other_2 + Male_Other_4 + Female_Other_1 + Female_Black_4 + Female_Black_3 + Male_Other_3 + Female_Other_4 + Male_Black_2 + Female_White_3 + Male_Black_5 + Male_Black_1 + Female_Other_2 + Male_White_2 + Male_Other_1 + Female_Black_0 + Male_Black_0 + Female_Other_5 + Female_White_5 + Female_White_4 + as.numeric(election_year)
@@ -109,8 +106,82 @@ print(wald_test)
 
 ```
 
+```{r}
 
+# MODEL RESULTS & INTERPRETATION
 
+# Fixed Effects
+model <- dem_vote_share_two_party ~ Male_Other_2 + Male_Other_4 + Female_Other_1 + Female_Black_4 + Female_Black_3 + Male_Other_3 + Female_Other_4 + Male_Black_2 + Female_White_3 + Male_Black_5 + Male_Black_1 + Female_Other_2 + Male_White_2 + Male_Other_1 + Female_Black_0 + Male_Black_0 + Female_Other_5 + Female_White_5 + Female_White_4 + factor(election_year)
+fe_model_time <- plm(model, data = pdata_train, model = "within")
+
+summary(fe_model_time)
+
+# Random Effects
+summary(re_model)
+
+# OLS
+summary(ols_model)
+
+```
+
+```{r}
+
+# TRACKING R^2 ACROSS TIME
+
+pdata <- pdata.frame(data, index = c("fips", "election_year")) # Convert to panel data (full data)
+fe_model_time_full <- plm(model, data = pdata, model = "within")
+
+pdata$predicted <- predict(fe_model_time_full)
+
+r2_by_year <- pdata %>%
+  group_by(election_year) %>%
+  summarize(
+    r2 = 1 - sum((dem_vote_share_two_party - predicted)^2) / 
+              sum((dem_vote_share_two_party - mean(dem_vote_share_two_party))^2)
+  )
+
+r2_by_year_plot <- ggplot(r2_by_year, aes(x = as.integer(as.character(election_year)), y = r2)) +
+  geom_point() +
+  geom_line() +
+  labs(title = "R^2 by Election Year", x = "Election Year", y = "R^2 (Explained Variance)")
+
+print(r2_by_year_plot)
+
+```
+
+```{r}
+
+# PERFORMANCE ON TEST SET
+
+fe_coefs <- coef(fe_model_time)
+
+levels(pdata_train$election_year)
+
+# Align test factor levels with train (although they don't exist) so matrices match
+test_early$election_year <- factor(test_early$election_year, levels = levels(pdata_train$election_year))
+test_late$election_year  <- factor(test_late$election_year, levels = levels(pdata_train$election_year))
+
+test_early_matrix <- model.matrix(model, data = test_early)
+test_late_matrix  <- model.matrix(model, data = test_late)
+
+test_early$predicted <- test_early_matrix %*% fe_coefs
+test_late$predicted  <- test_late_matrix %*% fe_coefs
+
+fe_model_time_early <- plm(model, data = pdata_test_early, model = "within")
+fe_model_time_late <- plm(model, data = pdata_test_late, model = "within")
+
+pdata_test_early$predicted <- predict(fe_model_time_early)
+pdata_test_late$predicted <- predict(fe_model_time_late)
+
+r2_early <- 1 - sum((pdata_test_early$dem_vote_share_two_party - pdata_test_early$predicted)^2) / 
+              sum((pdata_test_early$dem_vote_share_two_party - mean(pdata_test_early$dem_vote_share_two_party))^2)
+r2_late <- 1 - sum((pdata_test_late$dem_vote_share_two_party - pdata_test_late$predicted)^2) / 
+              sum((pdata_test_late$dem_vote_share_two_party - mean(pdata_test_late$dem_vote_share_two_party))^2)
+
+rmse_early <- sqrt(mean((pdata_test_early$dem_vote_shrae_two_party - pdata_test_early$predicted)^2))
+rmse_late <- sqrt(mean((pdata_test_late$dem_vote_shrae_two_party - pdata_test_late$predicted)^2))
+
+```
 
 
 
