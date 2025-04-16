@@ -22,6 +22,10 @@ data <- readRDS("../Data/Processed/Merged_Data.rds")
 
 # Fit two models, one on first half of years and other on last half of years
 
+# Random effects
+# Random intercept: lmer(dem_vote_share_two_party ~ demographics + (1 | county), data = your_data)
+# Random intercpet & slope: lmer(dem_vote_share_two_party ~ year + demographics + (year | county), data = your_data)
+
 ```
 
 ```{r}
@@ -42,7 +46,7 @@ set.seed(123)
 
 # Set up matrices
 y <- train$dem_vote_share_two_party
-X <- model.matrix(dem_vote_share_two_party ~ White_Total_Pop + Black_Total_Pop + Other_Total_Pop + Male_Total_Pop + Female_Total_Pop + Age_0_Total_Pop + Age_1_Total_Pop + Age_2_Total_Pop + Age_3_Total_Pop + Age_4_Total_Pop + Age_5_Total_Pop + Female_Black_0 + Female_Black_1 + Female_Black_2 + Female_Black_3 + Female_Black_4 + Female_Black_5 + Female_Other_0 + Female_Other_1 + Female_Other_2 + Female_Other_3 + Female_Other_4 + Female_Other_5 + Female_White_0 + Female_White_1 + Female_White_2 + Female_White_3 + Female_White_4 + Female_White_5 + Male_Black_0 + Male_Black_1 + Male_Black_2 + Male_Black_3 + Male_Black_4 + Male_Black_5 + Male_Other_0 + Male_Other_1 + Male_Other_2 + Male_Other_3 + Male_Other_4 + Male_Other_5 + Male_White_0 + Male_White_1 + Male_White_2 + Male_White_3 + Male_White_4 + Male_White_5 + Total_Pop + factor(election_year), data = train)[,-1]
+X <- model.matrix(dem_vote_share_two_party ~ White_Total_Pop + Black_Total_Pop + Other_Total_Pop + Male_Total_Pop + Female_Total_Pop + Age_0_Total_Pop + Age_1_Total_Pop + Age_2_Total_Pop + Age_3_Total_Pop + Age_4_Total_Pop + Age_5_Total_Pop + Female_Black_0 + Female_Black_1 + Female_Black_2 + Female_Black_3 + Female_Black_4 + Female_Black_5 + Female_Other_0 + Female_Other_1 + Female_Other_2 + Female_Other_3 + Female_Other_4 + Female_Other_5 + Female_White_0 + Female_White_1 + Female_White_2 + Female_White_3 + Female_White_4 + Female_White_5 + Male_Black_0 + Male_Black_1 + Male_Black_2 + Male_Black_3 + Male_Black_4 + Male_Black_5 + Male_Other_0 + Male_Other_1 + Male_Other_2 + Male_Other_3 + Male_Other_4 + Male_Other_5 + Male_White_0 + Male_White_1 + Male_White_2 + Male_White_3 + Male_White_4 + Male_White_5 + Female_Black_Total_Pop + Female_White_Total_Pop + Female_Other_Total_Pop + Male_Black_Total_Pop + Male_White_Total_Pop + Male_Other_Total_Pop + Total_Pop + factor(election_year), data = train)[,-1]
 
 # Perform cross-validation
 cv_lasso <- cv.glmnet(X, y, alpha = 1, standardize = TRUE, nfolds = 10)
@@ -80,7 +84,8 @@ print(coef_df)
 # MODEL TESTING & SELECTION
 
 pdata_train <- pdata.frame(train, index = c("fips", "election_year")) # Convert to panel data
-model <- dem_vote_share_two_party ~ Male_Other_2 + Male_Other_4 + Female_Other_1 + Female_Black_4 + Female_Black_3 + Male_Other_3 + Female_Other_4 + Male_Black_2 + Female_White_3 + Male_Black_5 + Male_Black_1 + Female_Other_2 + Male_White_2 + Male_Other_1 + Female_Black_0 + Male_Black_0 + Female_Other_5 + Female_White_5 + Female_White_4 + as.numeric(election_year)
+
+model <- dem_vote_share_two_party ~ Male_Other_2 + Male_Other_4 + Female_Other_1 + Female_Black_4 + Female_Black_3 + Male_Other_3 + Female_Other_4 + Male_Black_2 + Female_White_3 + Male_Black_0 + Male_Black_5 + Male_Black_1 + Female_Black_0 + Female_Other_2 + Male_White_2 + Male_Other_1 + Female_Other_5 + Female_White_5 + Female_White_4 + Female_White_2 + Female_White_1 + Female_White_0 + Female_Black_1 + Male_White_4 + Male_White_5 + Female_Black_5 + Male_White_0 + Male_White_3 + Male_Black_3 + Male_Other_0 + Male_Black_4 + Female_Other_3 + Female_Other_0 + Female_Black_2 + Male_Other_5 + as.numeric(election_year)
 
 fe_model <- plm(model, data = pdata_train, model = "within")
 re_model <- plm(model, data = pdata_train, model = "random")
@@ -99,7 +104,7 @@ f_test <- pFtest(fe_model, ols_model) # Prefer fixed effects
 print(f_test)
 
 # Wald Test (Nested F-Test)
-fe_no_time_model <- plm(dem_vote_share_two_party ~ Male_Other_2 + Male_Other_4 + Female_Other_1 + Female_Black_4 + Female_Black_3 + Male_Other_3 + Female_Other_4 + Male_Black_2 + Female_White_3 + Male_Black_5 + Male_Black_1 + Female_Other_2 + Male_White_2 + Male_Other_1 + Female_Black_0 + Male_Black_0 + Female_Other_5 + Female_White_5 + Female_White_4, data = pdata_train, model = "within")
+fe_no_time_model <- plm(dem_vote_share_two_party ~ Male_Other_2 + Male_Other_4 + Female_Other_1 + Female_Black_4 + Female_Black_3 + Male_Other_3 + Female_Other_4 + Male_Black_2 + Female_White_3 + Male_Black_0 + Male_Black_5 + Male_Black_1 + Female_Black_0 + Female_Other_2 + Male_White_2 + Male_Other_1 + Female_Other_5 + Female_White_5 + Female_White_4 + Female_White_2 + Female_White_1 + Female_White_0 + Female_Black_1 + Male_White_4 + Male_White_5 + Female_Black_5 + Male_White_0 + Male_White_3 + Male_Black_3 + Male_Other_0 + Male_Black_4 + Female_Other_3 + Female_Other_0 + Female_Black_2 + Male_Other_5, data = pdata_train, model = "within")
 
 wald_test <- waldtest(fe_no_time_model, fe_model) # Prefer model with factor(election_year)
 print(wald_test)
@@ -111,7 +116,7 @@ print(wald_test)
 # MODEL RESULTS & INTERPRETATION
 
 # Fixed Effects
-model <- dem_vote_share_two_party ~ Male_Other_2 + Male_Other_4 + Female_Other_1 + Female_Black_4 + Female_Black_3 + Male_Other_3 + Female_Other_4 + Male_Black_2 + Female_White_3 + Male_Black_5 + Male_Black_1 + Female_Other_2 + Male_White_2 + Male_Other_1 + Female_Black_0 + Male_Black_0 + Female_Other_5 + Female_White_5 + Female_White_4 + factor(election_year)
+model <- dem_vote_share_two_party ~ Male_Other_2 + Male_Other_4 + Female_Other_1 + Female_Black_4 + Female_Black_3 + Male_Other_3 + Female_Other_4 + Male_Black_2 + Female_White_3 + Male_Black_0 + Male_Black_5 + Male_Black_1 + Female_Black_0 + Female_Other_2 + Male_White_2 + Male_Other_1 + Female_Other_5 + Female_White_5 + Female_White_4 + Female_White_2 + Female_White_1 + Female_White_0 + Female_Black_1 + Male_White_4 + Male_White_5 + Female_Black_5 + Male_White_0 + Male_White_3 + Male_Black_3 + Male_Other_0 + Male_Black_4 + Female_Other_3 + Female_Other_0 + Female_Black_2 + Male_Other_5 + factor(election_year)
 fe_model_time <- plm(model, data = pdata_train, model = "within")
 
 summary(fe_model_time)
@@ -143,6 +148,7 @@ r2_by_year <- pdata %>%
 r2_by_year_plot <- ggplot(r2_by_year, aes(x = as.integer(as.character(election_year)), y = r2)) +
   geom_point() +
   geom_line() +
+  scale_x_continuous(breaks = c(1972, 1976, 1980, 1984, 1988, 1992, 1996, 2000, 2004, 2008, 2012, 2016, 2020)) +
   labs(title = "R^2 by Election Year", x = "Election Year", y = "R^2 (Explained Variance)")
 
 print(r2_by_year_plot)
@@ -180,59 +186,6 @@ r2_late <- 1 - sum((pdata_test_late$dem_vote_share_two_party - pdata_test_late$p
 
 rmse_early <- sqrt(mean((pdata_test_early$dem_vote_shrae_two_party - pdata_test_early$predicted)^2))
 rmse_late <- sqrt(mean((pdata_test_late$dem_vote_shrae_two_party - pdata_test_late$predicted)^2))
-
-```
-
-
-
-```{r}
-
-# Pooled OLS
-
-lm_fixed_base <- lm(dem_vote_share_two_party ~ White_Total_Pop + Black_Total_Pop + Other_Total_Pop + Male_Total_Pop + Female_Total_Pop + Age_0_Total_Pop + Age_1_Total_Pop + Age_2_Total_Pop + Age_3_Total_Pop + Age_4_Total_Pop + Age_5_Total_Pop + factor(election_year), data = data)
-
-lm_fixed_sliced <- lm(dem_vote_share_two_party ~ Female_Black_0 + Female_Black_1 + Female_Black_2 + Female_Black_3 + Female_Black_4 + Female_Black_5 + Female_Other_0 + Female_Other_1 + Female_Other_2 + Female_Other_3 + Female_Other_4 + Female_Other_5 + Female_White_0 + Female_White_1 + Female_White_2 + Female_White_3 + Female_White_4 + Female_White_5 + Male_Black_0 + Male_Black_1 + Male_Black_2 + Male_Black_3 + Male_Black_4 + Male_Black_5 + Male_Other_0 + Male_Other_1 + Male_Other_2 + Male_Other_3 + Male_Other_4 + Male_Other_5 + Male_White_0 + Male_White_1 + Male_White_2 + Male_White_3 + Male_White_4 + Male_White_5 + factor(election_year), data = data)
-
-lm_fixed_total <- lm(dem_vote_share_two_party ~ White_Total_Pop + Black_Total_Pop + Other_Total_Pop + Male_Total_Pop + Female_Total_Pop + Age_0_Total_Pop + Age_1_Total_Pop + Age_2_Total_Pop + Age_3_Total_Pop + Age_4_Total_Pop + Age_5_Total_Pop + Female_Black_0 + Female_Black_1 + Female_Black_2 + Female_Black_3 + Female_Black_4 + Female_Black_5 + Female_Other_0 + Female_Other_1 + Female_Other_2 + Female_Other_3 + Female_Other_4 + Female_Other_5 + Female_White_0 + Female_White_1 + Female_White_2 + Female_White_3 + Female_White_4 + Female_White_5 + Male_Black_0 + Male_Black_1 + Male_Black_2 + Male_Black_3 + Male_Black_4 + Male_Black_5 + Male_Other_0 + Male_Other_1 + Male_Other_2 + Male_Other_3 + Male_Other_4 + Male_Other_5 + Male_White_0 + Male_White_1 + Male_White_2 + Male_White_3 + Male_White_4 + Male_White_5 + factor(election_year), data = data)
-
-summary(lm_fixed_sliced)
-
-
-```
-
-```{r}
-
-# Random effects
-# Random intercept: lmer(dem_vote_share_two_party ~ demographics + (1 | county), data = your_data)
-# Random intercpet & slope: lmer(dem_vote_share_two_party ~ year + demographics + (year | county), data = your_data)
-
-
-
-```
-
-```{r}
-
-# Two-way fixed effects
-# lm(dem_vote_share_two_party ~ demographics + factor(county) + factor(year), data = your_data)
-
-
-```
-
-
-```{r}
-
-print(unique(data$election_year)) # 13 elections
-test_years <- c(1972, 1976, 2016, 2020)
-
-not_model_columns <- c("county_name", "state", "sfips", "office", "election_type", "seat_status", "democratic_raw_votes", "dem_nominee", "republican_raw_votes", "rep_nominee", "pres_raw_county_vote_totals_two_party", "raw_county_vote_totals", "dem_vote_share_total", "rep_vote_share_total", "dem_voter_turnout", "rep_voter_turnout", "total_voter_turnout", "complete_county_cases", "Total_Pop")
-
-data_model <- data %>% 
-  select(-not_model_columns)
-
-test <- data[data$election_year %in% test_years, ]
-train <- data[!(data$election_year %in% test_years), ]
-
-colnames(data)
 
 ```
 
