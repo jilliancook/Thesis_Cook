@@ -16,6 +16,8 @@ library(lmtest)
 library(lme4)
 library(glmnet)
 library(kableExtra)
+library(modelr)
+library(car)
 
 ```
 
@@ -31,7 +33,7 @@ train <- model_data[!(model_data$election_year %in% c(1972, 1976, 2016, 2020)), 
 test_early <- model_data[model_data$election_year %in% c(1972, 1976), ]
 test_late <- model_data[model_data$election_year %in% c(2016, 2020), ]
 
-data <- pdata.frame(model_data, index = c("fips", "election_year"))
+pdata <- pdata.frame(model_data, index = c("fips", "election_year"))
 pdata_train <- pdata.frame(train, index = c("fips", "election_year"))
 pdata_test_early <- pdata.frame(test_early, index = c("fips", "election_year"))
 pdata_test_late <- pdata.frame(test_late, index = c("fips", "election_year"))
@@ -54,8 +56,14 @@ m_sex <- plm(dem_vote_share_two_party ~ Female_Total_Pop, data = pdata_train, mo
 # M1C: Race Only (OLS)
 m_race <- plm(dem_vote_share_two_party ~ Black_Total_Pop + White_Total_Pop, data = pdata_train, model = "pooling")
 
+model <- dem_vote_share_two_party ~ Age_0_Total_Pop + Age_1_Total_Pop + Age_2_Total_Pop + Age_4_Total_Pop + Age_5_Total_Pop + Female_Total_Pop + Black_Total_Pop + White_Total_Pop
+
 # M2: All Main Effects (Age + Sex + Race)
-m_pooled <- plm(dem_vote_share_two_party ~ Age_0_Total_Pop + Age_1_Total_Pop + Age_2_Total_Pop + Age_4_Total_Pop + Age_5_Total_Pop + Female_Total_Pop + Black_Total_Pop + White_Total_Pop, data = pdata_train, model = "pooling")
+m_pooled <- plm(model, data = pdata_train, model = "pooling")
+
+# Linear Model (same as plm, but useful for different function calls)
+lm_fit <- lm(model, data = pdata_train)
+crPlots(lm_fit)
 
 ```
 
@@ -77,7 +85,7 @@ pFtest(m_pooled, m_sex)
 pFtest(m_pooled, m_race) # Result for all: Complex models perform better
 
 # R^2 Analysis
-r2_values <- c(
+r2_values_base <- c(
   m_int = summary(m_int)$r.squared,
   m_age = summary(m_age)$r.squared,
   m_sex = summary(m_sex)$r.squared,
@@ -85,24 +93,26 @@ r2_values <- c(
   m_pooled = summary(m_pooled)$r.squared
 )
 
-r2_df <- data.frame(
-  model = names(r2_values),
-  r_squared = as.numeric(r2_values)
+r2_df_base <- data.frame(
+  model = names(r2_values_base),
+  r_squared = as.numeric(r2_values_base)
 )
 
-r2_adj_df <- r2_df[r2_df$model %in% c("m_int.adjrsq", "m_age.adjrsq", "m_sex.adjrsq", "m_race.adjrsq", "m_pooled.adjrsq"), ] %>% 
-    mutate(across(where(is.numeric), ~ round(.x, 2)))
-model_names <- c("Intercept Model", "Age Model", "Sex Model", "Race Model", "Age-Sex-Race Model")
-r2_adj_df$model <- model_names
-r2_adj_df$model <- factor(r2_adj_df$model, levels = r2_adj_df$model)
+r2_adj_df_base <- 
+  r2_df_base[r2_df_base$model %in% c("m_int.adjrsq", "m_age.adjrsq", "m_sex.adjrsq", "m_race.adjrsq", "m_pooled.adjrsq"), ] %>% 
+  mutate(across(where(is.numeric), ~ round(.x, 2)))
 
-r2_base_models <- ggplot(r2_adj_df, aes(x = model, y = r_squared)) +
+model_names_base <- c("Intercept Model", "Age Model", "Sex Model", "Race Model", "Age-Sex-Race Model")
+r2_adj_df_base$model <- model_names_base
+r2_adj_df_base$model <- factor(r2_adj_df_base$model, levels = r2_adj_df_base$model)
+
+r2_base_models <- ggplot(r2_adj_df_base, aes(x = model, y = r_squared)) +
   geom_point() +
   labs(x = "Model", y = "Adjusted R Squared", title = "Adjusted R Squared by Model Type - Base Models") +
   theme_minimal()
 
 print(r2_base_models)
-print(r2_adj_df %>% kable())
+print(r2_adj_df_base %>% kable())
 print(summary(m_pooled)) # Model of interest (age-sex-race model)
 
 ```
@@ -110,8 +120,6 @@ print(summary(m_pooled)) # Model of interest (age-sex-race model)
 ```{r}
 
 # MODEL SEQUENCE: FIXED & RANDOM EFFECTS
-
-model <- dem_vote_share_two_party ~ Age_0_Total_Pop + Age_1_Total_Pop + Age_2_Total_Pop + Age_4_Total_Pop + Age_5_Total_Pop + Female_Total_Pop + Black_Total_Pop + White_Total_Pop
 
 # M3A: Year FE
 m_year_fe <- plm(model, data = pdata_train, model = "within", effect = "time")
@@ -131,7 +139,7 @@ m_re <- plm(model, data = pdata_train, model = "random")
 
 # MODEL TESTING
 
-# Pooled OLS can have much higher R^2 because it falsely attributes fixed traits such as county partisanship to the included variables, whereas TWFE drops that explanatory power
+# Pooled OLS can have much higher R^2 because it falsely attributes fixed traits such as county partisanship to the included variables, whereas TWFE drops that explanatory power (OLS can be more biased)
 
 # F-Test (Fixed Effects vs. OLS)
 pFtest(m_year_fe, m_pooled) # Prefer FE
@@ -141,8 +149,9 @@ pFtest(m_county_fe, m_pooled) # Prefer FE
 plmtest(m_pooled, type = "bp") # Prefer RE
 
 # Hausman Test (Fixed vs. Random Effects)
-phtest(m_year_fe, m_re) # Prefer FE
-phtest(m_county_fe, m_re) # Prefer FE
+phtest(m_year_fe, m_re) # Prefer year FE
+phtest(m_county_fe, m_re) # Prefer county FE
+phtest(m_tw_fe, m_re) # Prefer TWFE
 
 summary(m_tw_fe)
 summary(m_county_fe)
@@ -150,3 +159,195 @@ summary(m_year_fe)
 
 ```
 
+```{r}
+
+# MODEL COMPARISON: FE VS. RE VS. OLS
+
+# R^2 Analysis
+r2_values <- c(
+  m_year_fe = summary(m_year_fe)$r.squared,
+  m_county_fe = summary(m_county_fe)$r.squared,
+  m_tw_fe = summary(m_tw_fe)$r.squared,
+  m_re = summary(m_re)$r.squared,
+  m_pooled = summary(m_pooled)$r.squared
+)
+
+r2_df <- data.frame(
+  model = names(r2_values),
+  r_squared = as.numeric(r2_values)
+)
+
+r2_adj_df <- 
+  r2_df[r2_df$model %in% c("m_year_fe.adjrsq", "m_county_fe.adjrsq", "m_tw_fe.adjrsq", "m_re.adjrsq", "m_pooled.adjrsq"), ] %>% 
+  mutate(across(where(is.numeric), ~ round(.x, 2)))
+
+model_names <- c("Year FE Model", "County FE Model", "Two-Way FE Model", "RE Model", "Pooled OLS Model")
+r2_adj_df$model <- model_names
+r2_adj_df$model <- factor(r2_adj_df$model, levels = r2_adj_df$model)
+
+r2_models <- ggplot(r2_adj_df, aes(x = model, y = r_squared)) +
+  geom_point() +
+  labs(x = "Model", y = "Adjusted R Squared", title = "Adjusted R Squared by Model Type - FE vs. RE vs. Pooled OLS") +
+  theme_minimal()
+
+print(r2_models)
+
+```
+
+```{r}
+
+# PREDICTION ON TEST SETS
+
+X_early <- model.matrix(model, data = pdata_test_early)[,-1]
+X_late <- model.matrix(model, data = pdata_test_late)[,-1]
+
+coefs_pooled <- coef(m_pooled)
+coefs_year_fe <- coef(m_year_fe)
+coefs_county_fe <- coef(m_county_fe)
+coefs_re <- coef(m_re)
+
+# For year/county FE, predictions are deviations (not actual vote share levels)
+# Given the average vote share for this year, how does this county's demographics explain its relative deviation?
+
+pred_early_year_fe <- X_early %*% coefs_year_fe 
+pred_late_year_fe  <- X_late  %*% coefs_year_fe
+
+pred_early_county_fe <- X_early %*% coefs_county_fe
+pred_late_county_fe  <- X_late  %*% coefs_county_fe
+
+pred_early_re <- X_early %*% coefs_re[-1]
+pred_late_re  <- X_late  %*% coefs_re[-1]
+
+pred_early_pooled <- X_early %*% coefs_pooled[-1]
+pred_late_pooled  <- X_late  %*% coefs_pooled[-1]
+
+```
+
+```{r}
+
+# COMPARISON OF PREDICTIONS
+
+rmse <- function(pred, actual) {
+  sqrt(mean((pred - actual)^2))
+}
+
+mae <- function(pred, actual) {
+  mean(abs(actual - pred))
+}
+
+# Year FE
+mae_early_year_fe <- mae(pred_early_year_fe, pdata_test_early$dem_vote_share_two_party)
+mae_late_year_fe <- mae(pred_late_year_fe, pdata_test_late$dem_vote_share_two_party)
+
+# County FE
+mae_early_county_fe <- mae(pred_early_county_fe, pdata_test_early$dem_vote_share_two_party)
+mae_late_county_fe <- mae(pred_late_county_fe, pdata_test_late$dem_vote_share_two_party)
+
+# RE
+mae_early_re <- mae(pred_early_re, pdata_test_early$dem_vote_share_two_party)
+mae_late_re <- mae(pred_late_re, pdata_test_late$dem_vote_share_two_party)
+
+rmse_early_re <- rmse(pred_early_re, pdata_test_early$dem_vote_share_two_party)
+rmse_late_re <- rmse(pred_late_re, pdata_test_late$dem_vote_share_two_party)
+
+# Pooled OLS
+mae_early_pooled <- mae(pred_early_pooled, pdata_test_early$dem_vote_share_two_party)
+mae_late_pooled <- mae(pred_late_pooled, pdata_test_late$dem_vote_share_two_party)
+
+rmse_early_pooled <- rmse(pred_early_pooled, pdata_test_early$dem_vote_share_two_party)
+rmse_late_pooled <- rmse(pred_late_pooled, pdata_test_late$dem_vote_share_two_party)
+
+# Comparison
+eval_comparison <- data.frame(
+  Model = c("Pooled OLS", "Random Effects"),
+  MAE_Early = c(mae_early_pooled, mae_early_re),
+  MAE_Late  = c(mae_late_pooled,  mae_late_re),
+  RMSE_Early = c(rmse_early_pooled, rmse_early_re),
+  RMSE_Late  = c(rmse_late_pooled, rmse_late_re)
+)
+
+print(eval_comparison)
+
+```
+
+```{r}
+
+# RANDOM FOREST
+
+library(randomForest)
+
+rf_model <- randomForest(
+  dem_vote_share_two_party ~ Age_0_Total_Pop + Age_1_Total_Pop + Age_2_Total_Pop +
+    Age_4_Total_Pop + Age_5_Total_Pop + Female_Total_Pop +
+    Black_Total_Pop + White_Total_Pop,
+  data = pdata_train,
+  ntree = 500
+)
+
+pred_rf_early <- predict(rf_model, newdata = pdata_test_early)
+pred_rf_late  <- predict(rf_model, newdata = pdata_test_late)
+
+mae_early_rf<- mae(pred_rf_early, pdata_test_early$dem_vote_share_two_party)
+mae_late_rf <- mae(pred_rf_late, pdata_test_late$dem_vote_share_two_party)
+
+rmse_early_rf <- rmse(pred_rf_early, pdata_test_early$dem_vote_share_two_party)
+rmse_late_rf <- rmse(pred_rf_late, pdata_test_late$dem_vote_share_two_party)
+
+mae_change_pooled <- (mae_late_pooled - mae_early_pooled) / (mae_early_pooled) * 100
+rmse_change_pooled <- (rmse_late_pooled - rmse_early_pooled) / (rmse_early_pooled) * 100
+
+mae_change_re <- (mae_late_re - mae_early_re) / (mae_early_re) * 100
+rmse_change_re <- (rmse_late_re - rmse_early_re) / (rmse_early_re) * 100
+
+mae_change_rf <- (mae_late_rf - mae_early_rf) / (mae_early_rf) * 100
+rmse_change_rf <- (rmse_late_rf - rmse_early_rf) / (rmse_early_rf) * 100
+
+eval_comparison_rf <- data.frame(
+  Model = c("Pooled OLS", "Random Effect", "Random Forest"),
+  MAE_Early = c(mae_early_pooled, mae_early_re, mae_early_rf),
+  MAE_Late  = c(mae_late_pooled,  mae_late_re, mae_late_rf),
+  MAE_Perc_Change = c(mae_change_pooled, mae_change_re, mae_change_rf),
+  RMSE_Early = c(rmse_early_pooled, rmse_early_re, rmse_early_rf),
+  RMSE_Late  = c(rmse_late_pooled, rmse_late_re, rmse_late_rf),
+  RMSE_Perc_Change = c(rmse_change_pooled, rmse_change_re, rmse_change_rf)
+)
+
+print(eval_comparison_rf)
+
+```
+
+```{r}
+
+# SUMMARY CHARTS & TABLES
+
+pdata_test_early <- pdata_test_early %>% 
+  mutate(pooled_prediction = pred_early_pooled,
+         re_prediction = pred_early_re,
+         rf_prediction = pred_rf_early,
+         test_period = "Early")
+
+pdata_test_late <- pdata_test_late %>% 
+  mutate(pooled_prediction = pred_late_pooled,
+         re_prediction = pred_late_re,
+         rf_prediction = pred_rf_late,
+         test_period = "Late")
+
+pdata_test <- rbind(pdata_test_early, pdata_test_late)
+
+pooled_comparison <- ggplot(pdata_test, aes(x = pooled_prediction, y = dem_vote_share_two_party, color = test_period)) +
+  geom_point() +
+  geom_abline(slope = 1)
+
+re_comparison <- ggplot(pdata_test, aes(x = re_prediction, y = dem_vote_share_two_party, color = test_period)) +
+  geom_point() +
+  geom_abline(slope = 1)
+
+rf_comparison <- ggplot(pdata_test, aes(x = rf_prediction, y = dem_vote_share_two_party, color = test_period)) +
+  geom_point() +
+  geom_abline(slope = 1)
+
+print(pooled_comparison)
+print(re_comparison)
+print(rf_comparison)
+
+```
