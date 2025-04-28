@@ -1,0 +1,287 @@
+---
+title: "4_Summaries"
+format: html
+---
+
+```{r, echo = FALSE, message = FALSE, warning = FALSE}
+
+library(ggplot2)
+library(dplyr)
+library(tidyr)
+library(readr)
+library(sf)
+library(tigris)
+library(plm)
+library(lmtest)
+library(lme4)
+library(glmnet)
+library(kableExtra)
+library(modelr)
+library(car)
+library(lmtest)
+library(sandwich)
+library(gt)
+library(broom)
+
+```
+
+```{r, echo = FALSE, message = FALSE, warning = FALSE}
+
+# LOAD IN MODELS & FUNCTION SETUP
+
+load("Models.RData")
+
+get_model_performance <- function(model) {
+  summ <- summary(model)
+  data.frame(
+    R2 = as.numeric(summ$r.squared[1]),      # rsq
+    Adj_R2 = as.numeric(summ$r.squared[2])    # adjrsq
+  )
+}
+
+```
+
+
+```{r, echo = FALSE, message = FALSE, warning = FALSE}
+
+# MODEL COMPARISON SUMMARY - OLS
+
+# Model Comparison
+
+performance_table_1 <- rbind(
+  get_model_performance(m_age),
+  get_model_performance(m_sex),
+  get_model_performance(m_race),
+  get_model_performance(m_pooled)
+)
+
+performance_table_1$model <- c("Age", "Sex", "Race", "Age-Sex-Race")
+
+performance_table_1 %>%
+  gt() %>%
+  tab_header(title = md("**Table 1**  \n**OLS Model Summary**")) %>%
+  fmt_number(columns = c(R2, Adj_R2), decimals = 3) %>%
+  cols_move_to_start(columns = vars(model)) %>%
+  cols_label(model = "Model", R2 = "R Squared", Adj_R2 = "Adjusted R Squared") %>%
+  opt_table_font(font = list(google_font("Times New Roman"), default_fonts())) %>%
+  tab_style(style = cell_text(weight = "bold"), locations = cells_column_labels(everything())) %>% 
+  tab_style(style = cell_text(style = "italic"), locations = cells_body(columns = model)) %>%
+  tab_options(
+    heading.title.font.size = 14,
+    heading.subtitle.font.size = 12,
+    table.font.size = 12,
+    data_row.padding = px(3),
+    row.striping.background_color = "white",
+    row.striping.include_table_body = FALSE,
+    column_labels.background.color = "white",
+    table.border.top.color = "black",
+    table.border.bottom.color = "black",
+    heading.border.bottom.color = "black")
+
+# Coefficient Comparison
+
+tidy_age <- tidy(m_age) %>% mutate(model = "Age Model")
+tidy_sex <- tidy(m_sex) %>% mutate(model = "Sex Model")
+tidy_race <- tidy(m_race) %>% mutate(model = "Race Model")
+tidy_all <- tidy(m_pooled) %>% mutate(model = "Age-Sex-Race Model")
+
+coef_combined_1 <- bind_rows(tidy_age, tidy_sex, tidy_race, tidy_all) %>% 
+  mutate(sigstars = case_when(
+    p.value < 0.001 ~ "***",
+    p.value < 0.01  ~ "**",
+    p.value < 0.05  ~ "*",
+    p.value < 0.1   ~ ".",
+    TRUE ~ ""
+  )) %>% 
+  mutate(term = as.character(term)) %>% 
+  mutate(term = dplyr::recode(term,
+    "Age_0_Total_Pop" = "Age 0-14 Share",
+    "Age_1_Total_Pop" = "Age 15-24 Share",
+    "Age_2_Total_Pop" = "Age 25-39 Share",
+    "Age_4_Total_Pop" = "Age 55-69 Share",
+    "Age_5_Total_Pop" = "Age 70+ Share",
+    "Female_Total_Pop" = "Female Share",
+    "Black_Total_Pop" = "Black Share",
+    "White_Total_Pop" = "White Share"
+  )) %>% 
+  mutate(term = factor(term, levels = c(
+    "(Intercept)",
+    "Age 0-14 Share",
+    "Age 15-24 Share",
+    "Age 25-39 Share",
+    "Age 55-69 Share",
+    "Age 70+ Share",
+    "Black Share",
+    "White Share",
+    "Female Share"
+  )))
+
+coef_combined_1 %>%
+  select(model, term, estimate, std.error, statistic, p.value, sigstars) %>%
+  arrange(term, model) %>%
+  gt(groupname_col = "term") %>%
+  tab_header(title = md("**Table 2**  \n**Coefficient Comparison Across OLS Models**")) %>%
+  fmt_number(columns = c(estimate, std.error, statistic, p.value),decimals = 3) %>%
+  cols_label(model = "Model", estimate = "Beta", std.error = "Standard Error", statistic = "t", p.value = "Sig.", sigstars = "") %>%
+  opt_table_font(font = list(google_font("Times New Roman"), default_fonts())) %>%
+  tab_style(style = cell_text(weight = "bold", style = "italic"), locations = cells_row_groups()) %>% 
+  tab_style(style = cell_text(weight = "bold"), locations = cells_column_labels(everything())) %>% 
+  tab_style(style = cell_borders(sides = "bottom", color = "black", weight = px(1)),locations = cells_row_groups(groups = "Age 70+ Share")) %>%
+    tab_style(style = cell_borders(sides = "bottom", color = "black", weight = px(1)),locations = cells_row_groups(groups = "White Share")) %>%
+  tab_options(
+    table.font.size = 12,
+    data_row.padding = px(3),
+    row.striping.background_color = "white",
+    row.striping.include_table_body = FALSE,
+    column_labels.background.color = "white",
+    table.border.top.color = "black",
+    table.border.bottom.color = "black",
+    heading.border.bottom.color = "black"
+  )
+
+```
+
+```{r, echo = FALSE, message = FALSE, warning = FALSE}
+
+# MODEL COMPARISON SUMMARY - COUNTY & YEAR EFFECTS
+
+get_model_performance_lm <- function(model) {
+  summ <- summary(model)
+  
+  data.frame(
+    R2 = summ$r.squared,
+    Adj_R2 = summ$adj.r.squared
+  )
+}
+
+performance_table_3 <- rbind(
+  get_model_performance_lm(m_fips),
+  get_model_performance_lm(m_year),
+  get_model_performance_lm(m_year_fips)
+)
+
+performance_table_3$model <- c("County Effects", "Year Effects", "County-Year Effects")
+
+performance_table_3 %>%
+  gt() %>%
+  tab_header(title = md("**Table 3**  \n**County & Year Effects Model Summary**")) %>%
+  fmt_number(columns = c(R2, Adj_R2), decimals = 3) %>%
+  cols_move_to_start(columns = vars(model)) %>%
+  cols_label(model = "Model", R2 = "R Squared", Adj_R2 = "Adjusted R Squared") %>%
+  opt_table_font(font = list(google_font("Times New Roman"), default_fonts())) %>%
+  tab_style(style = cell_text(weight = "bold"), locations = cells_column_labels(everything())) %>% 
+  tab_style(style = cell_text(style = "italic"), locations = cells_body(columns = model)) %>%
+  tab_options(
+    heading.title.font.size = 14,
+    heading.subtitle.font.size = 12,
+    table.font.size = 12,
+    data_row.padding = px(3),
+    row.striping.background_color = "white",
+    row.striping.include_table_body = FALSE,
+    column_labels.background.color = "white",
+    table.border.top.color = "black",
+    table.border.bottom.color = "black",
+    heading.border.bottom.color = "black")
+
+
+```
+
+```{r, echo = FALSE, message = FALSE, warning = FALSE}
+
+# MODEL COMPARISON - RELEVANT MODELS
+
+performance_table_4 <- rbind(
+  get_model_performance(m_year_fe),
+  get_model_performance(m_county_fe),
+  get_model_performance(m_tw_fe),
+  get_model_performance(m_re),
+  get_model_performance(m_pooled)
+)
+
+performance_table_4$model <- c("Year FE", "County FE", "TWFE", "Random Effects", "Pooled OLS")
+
+performance_table_4 %>%
+  gt() %>%
+  tab_header(title = md("**Table 4**  \n**Relevant Model Summary**")) %>%
+  fmt_number(columns = c(R2, Adj_R2), decimals = 3) %>%
+  cols_move_to_start(columns = vars(model)) %>%
+  cols_label(model = "Model", R2 = "R Squared", Adj_R2 = "Adjusted R Squared") %>%
+  opt_table_font(font = list(google_font("Times New Roman"), default_fonts())) %>%
+  tab_style(style = cell_text(weight = "bold"), locations = cells_column_labels(everything())) %>% 
+  tab_style(style = cell_text(style = "italic"), locations = cells_body(columns = model)) %>%
+  tab_options(
+    heading.title.font.size = 14,
+    heading.subtitle.font.size = 12,
+    table.font.size = 12,
+    data_row.padding = px(3),
+    row.striping.background_color = "white",
+    row.striping.include_table_body = FALSE,
+    column_labels.background.color = "white",
+    table.border.top.color = "black",
+    table.border.bottom.color = "black",
+    heading.border.bottom.color = "black")
+
+# Coefficient Comparison
+
+tidy_year_fe <- tidy(m_year_fe) %>% mutate(model = "Year FE Model")
+tidy_county_fe <- tidy(m_county_fe) %>% mutate(model = "County FE Model")
+tidy_tw_fe <- tidy(m_tw_fe) %>% mutate(model = "TWFE Model")
+tidy_re <- tidy(m_re) %>% mutate(model = "Random Effects Model")
+tidy_pooled <- tidy(m_pooled) %>% mutate(model = "Pooled OLS Model")
+
+coef_combined_4 <- bind_rows(tidy_year_fe, tidy_county_fe, tidy_tw_fe, tidy_re, tidy_pooled) %>% 
+  mutate(sigstars = case_when(
+    p.value < 0.001 ~ "***",
+    p.value < 0.01  ~ "**",
+    p.value < 0.05  ~ "*",
+    p.value < 0.1   ~ ".",
+    TRUE ~ ""
+  )) %>% 
+  mutate(term = as.character(term)) %>% 
+  mutate(term = dplyr::recode(term,
+    "Age_0_Total_Pop" = "Age 0-14 Share",
+    "Age_1_Total_Pop" = "Age 15-24 Share",
+    "Age_2_Total_Pop" = "Age 25-39 Share",
+    "Age_4_Total_Pop" = "Age 55-69 Share",
+    "Age_5_Total_Pop" = "Age 70+ Share",
+    "Female_Total_Pop" = "Female Share",
+    "Black_Total_Pop" = "Black Share",
+    "White_Total_Pop" = "White Share"
+  )) %>% 
+  mutate(term = factor(term, levels = c(
+    "(Intercept)",
+    "Age 0-14 Share",
+    "Age 15-24 Share",
+    "Age 25-39 Share",
+    "Age 55-69 Share",
+    "Age 70+ Share",
+    "Black Share",
+    "White Share",
+    "Female Share"
+  )))
+
+coef_combined_4 %>%
+  select(model, term, estimate, std.error, statistic, p.value, sigstars) %>%
+  arrange(term, model) %>%
+  gt(groupname_col = "term") %>%
+  tab_header(title = md("**Table 5**  \n**Coefficient Comparison Across Relevant Models**")) %>%
+  fmt_number(columns = c(estimate, std.error, statistic, p.value),decimals = 3) %>%
+  cols_label(model = "Model", estimate = "Beta", std.error = "Standard Error", statistic = "t", p.value = "Sig.", sigstars = "") %>%
+  opt_table_font(font = list(google_font("Times New Roman"), default_fonts())) %>%
+  tab_style(style = cell_text(weight = "bold", style = "italic"), locations = cells_row_groups()) %>% 
+  tab_style(style = cell_text(weight = "bold"), locations = cells_column_labels(everything())) %>% 
+  tab_style(style = cell_borders(sides = "bottom", color = "black", weight = px(1)),locations = cells_row_groups(groups = "Age 70+ Share")) %>%
+    tab_style(style = cell_borders(sides = "bottom", color = "black", weight = px(1)),locations = cells_row_groups(groups = "White Share")) %>%
+  tab_options(
+    table.font.size = 12,
+    data_row.padding = px(3),
+    row.striping.background_color = "white",
+    row.striping.include_table_body = FALSE,
+    column_labels.background.color = "white",
+    table.border.top.color = "black",
+    table.border.bottom.color = "black",
+    heading.border.bottom.color = "black"
+  )
+
+```
+
