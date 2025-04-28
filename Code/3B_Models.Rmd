@@ -20,6 +20,8 @@ library(modelr)
 library(car)
 library(lmtest)
 library(sandwich)
+library(gt)
+library(broom)
 
 ```
 
@@ -126,10 +128,27 @@ m_year <- lm(dem_vote_share_two_party ~ factor(election_year), data = pdata_trai
 # M5: County & Year Effects
 m_year_fips <- lm(dem_vote_share_two_party ~ factor(fips) + factor(election_year), data = pdata_train)
 
-#m <- lm(dem_vote_share_two_party ~ Age_0_Total_Pop + Age_1_Total_Pop + Age_2_Total_Pop + Age_4_Total_Pop + Age_5_Total_Pop + Female_Total_Pop + Black_Total_Pop + White_Total_Pop + factor(fips) + factor(election_year), data = pdata_train)
+r2_values_year_fips <- c(
+  m_fips = summary(m_fips)$r.squared,
+  m_year = summary(m_year)$r.squared,
+  m_year_fips = summary(m_year_fips)$r.squared)
 
-#summary(m_year_fips)$r.squared
-#summary(m)$r.squared
+r2_df_year_fips <- data.frame(
+  model = names(r2_values_year_fips),
+  r_squared = as.numeric(r2_values_year_fips)) %>% 
+  mutate(across(where(is.numeric), ~ round(.x, 2)))
+
+model_names_year_fips <- c("County Effects Model", "Year Effects Model Model", "County-Year Effects Model")
+r2_df_year_fips$model <- model_names_year_fips
+r2_df_year_fips$model <- factor(r2_df_year_fips$model, levels = r2_df_year_fips$model)
+
+r2_year_fips_models <- ggplot(r2_df_year_fips, aes(x = model, y = r_squared)) +
+  geom_point() +
+  labs(x = "Model", y = "Adjusted R Squared", title = "Adjusted R Squared by Model Type - County & Year Effects") +
+  theme_minimal()
+
+print(r2_year_fips_models)
+print(r2_df_year_fips %>% kable())
 
 ```
 
@@ -207,10 +226,7 @@ r2_values <- c(
   m_county_fe = summary(m_county_fe)$r.squared,
   m_tw_fe = summary(m_tw_fe)$r.squared,
   m_re = summary(m_re)$r.squared,
-  m_pooled = summary(m_pooled)$r.squared,
-  m_fips = summary(m_fips)$r.squared,
-  m_year = summary(m_year)$r.squared,
-  m_year_fips = summary(m_year_fips)$r.squared
+  m_pooled = summary(m_pooled)$r.squared
 )
 
 r2_df <- data.frame(
@@ -219,10 +235,10 @@ r2_df <- data.frame(
 )
 
 r2_adj_df <- 
-  r2_df[r2_df$model %in% c("m_year_fe.adjrsq", "m_county_fe.adjrsq", "m_tw_fe.adjrsq", "m_re.adjrsq", "m_pooled.adjrsq", "m_fips", "m_year", "m_year_fips"),] %>% 
+  r2_df[r2_df$model %in% c("m_year_fe.adjrsq", "m_county_fe.adjrsq", "m_tw_fe.adjrsq", "m_re.adjrsq", "m_pooled.adjrsq"),] %>% 
   mutate(across(where(is.numeric), ~ round(.x, 2)))
 
-model_names <- c("Year FE", "County FE", "TWFE", "Random Effects", "Pooled OLS", "County Effects", "Year Effects", "Year & County Effects")
+model_names <- c("Year FE", "County FE", "TWFE", "Random Effects", "Pooled OLS")
 r2_adj_df$model <- model_names
 r2_adj_df$model <- factor(r2_adj_df$model, levels = r2_adj_df$model)
 
@@ -351,10 +367,10 @@ print(eval_comparison)
 
 library(randomForest)
 
-rf_model <- randomForest(model, data = pdata_train, ntree = 500)
+m_rf <- randomForest(model, data = pdata_train, ntree = 500)
 
-pred_rf_early <- predict(rf_model, newdata = pdata_test_early)
-pred_rf_late  <- predict(rf_model, newdata = pdata_test_late)
+pred_rf_early <- predict(m_rf, newdata = pdata_test_early)
+pred_rf_late  <- predict(m_rf, newdata = pdata_test_late)
 
 mae_early_rf<- mae(pred_rf_early, pdata_test_early$dem_vote_share_two_party)
 mae_late_rf <- mae(pred_rf_late, pdata_test_late$dem_vote_share_two_party)
@@ -431,40 +447,22 @@ print(fips_comparison)
 
 ```{r}
 
-# RELEVANT STRATEGY: FOR PRESENTATION & PAPER
+# SAVING MODELS
 
-# 1) Base Models (Age, Sex, Race Alone)
-# 2) Pooled OLS (Age + Sex + Race)
-# 3) TWFE (Most Accurate)
-# 4) Random Forest
-
-
-
-```
-
-
-```{r}
-
-library(lmtest)
-
-fitted <- fitted(m_pooled)
-residuals <- resid(m_pooled)
-
-# Using base R
-plot(fitted, residuals,
-     xlab = "Fitted values", ylab = "Residuals",
-     main = "Residuals vs Fitted (OLS)")
-
-pdata_test %>% 
-  filter(fips == "08013")
-
-pdata %>% 
-  filter(fips == "08013")
-
-str(pdata)
-
-
+save(
+  m_age,
+  m_sex,
+  m_race,
+  m_pooled,
+  m_fips,
+  m_year,
+  m_year_fips,
+  m_county_fe,
+  m_year_fe,
+  m_tw_fe,
+  m_re,
+  m_rf,
+  file = "Models.RData"
+)
 
 ```
-
-
